@@ -1,21 +1,26 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
 	"time"
 )
 
 func main() {
-	ollamaClient, err := NewOllamaClient("", "qwen2.5-coder:7b", 120*time.Second)
+	writer, err := NewGlamourWriter()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	response, err := ollamaClient.GenerateWithContext("You are a code generator. Output ONLY code with no explanations.", "Write an HTTP handler in Go")
+	ollamaClient, err := NewOllamaClient("qwen2.5-coder:7b", 120*time.Second, writer)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(response)
+	prompt := os.Args[1]
+
+	err = ollamaClient.GenerateWithContext("You are a code generator. Output ONLY code with no explanations.", prompt)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

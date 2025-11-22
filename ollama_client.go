@@ -3,22 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ollama/ollama/api"
 )
 
 type OllamaClient struct {
-	serverURL  string
 	model      string
 	client     *api.Client
 	randomness float64
 	timeout    time.Duration
+	writer     FormatWriter
 }
 
-func NewOllamaClient(serverURL string, model string, timeout time.Duration) (*OllamaClient, error) {
-	client := &OllamaClient{serverURL: serverURL, model: model, timeout: timeout}
+func NewOllamaClient(model string, timeout time.Duration, writer FormatWriter) (*OllamaClient, error) {
+	client := &OllamaClient{model: model, timeout: timeout, writer: writer}
 	var err error
 
 	client.client, err = api.ClientFromEnvironment()
@@ -41,12 +40,12 @@ func (client *OllamaClient) SetRandomness(randomness float64) {
 	client.randomness = randomness
 }
 
-func (client *OllamaClient) GenerateWithContext(systemPrompt, userPrompt string) (string, error) {
+func (client *OllamaClient) GenerateWithContext(systemPrompt, userPrompt string) error {
 	finalPrompt := fmt.Sprintf("System: %s\n\nUser: %s\n\nAssistant:", systemPrompt, userPrompt)
 	return client.Generate(finalPrompt)
 }
 
-func (client *OllamaClient) Generate(prompt string) (string, error) {
+func (client *OllamaClient) Generate(prompt string) error {
 	request := &api.GenerateRequest{
 		Model:  client.model,
 		Prompt: prompt,
@@ -59,16 +58,14 @@ func (client *OllamaClient) Generate(prompt string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	var responseText strings.Builder
 	responseFunc := func(response api.GenerateResponse) error {
-		responseText.WriteString(response.Response)
-		return nil
+		return client.writer.Write(response.Response)
 	}
 	err := client.client.Generate(ctx, request, responseFunc)
 
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return responseText.String(), nil
+	return client.writer.Flush()
 }
