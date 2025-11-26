@@ -1,6 +1,7 @@
-package main
+package ai
 
 import (
+	"CodingCompanion/formatter"
 	"context"
 	"fmt"
 	"time"
@@ -13,10 +14,10 @@ type OllamaClient struct {
 	client     *api.Client
 	randomness float64
 	timeout    time.Duration
-	writer     FormatWriter
+	writer     formatter.FormatWriter
 }
 
-func NewOllamaClient(model string, timeout time.Duration, writer FormatWriter) (*OllamaClient, error) {
+func NewOllamaClient(model string, timeout time.Duration, writer formatter.FormatWriter) (*OllamaClient, error) {
 	client := &OllamaClient{model: model, timeout: timeout, writer: writer}
 	var err error
 
