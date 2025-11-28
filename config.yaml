@@ -1,0 +1,63 @@
+index:
+  directories:
+    - /mnt/c/Development/Projects/Outpost9
+    - /mnt/c/Development/Projects/GoLambda
+    - /mnt/c/Development/Projects/ib
+    - /mnt/c/Development/Projects/PokerTracker
+
+  # File extensions to include
+  extensions:
+    - .go
+    - .py
+    - .js
+    - .ts
+
+  # Directories to skip
+  exclude:
+    - node_modules
+    - vendor
+    - .git
+    - dist
+    - build
+
+# LLM settings
+llm:
+  model: qwen2.5-coder:7b
+  temperature: 0.4
+  timeout: 120s
+
+  system_prompt: |
+    You are a coding assistant helping an experienced developer.
+
+    When answering questions, you MUST:
+      1. Provide complete, working code examples
+      2. Use the coding patterns shown in the reference examples
+      3. Include error handling similar to the examples
+      4. Follow the naming conventions from the examples
+      5. Add comments explaining the code
+  
+    Do not just describe the code - write actual, runnable code.
+
+# Vector database settings
+vector_db:
+  url: http://localhost:8000
+  collection: code_snippets
+
+# Ollama settings
+ollama:
+  url: http://localhost:11434
+  embedding_model: nomic-embed-text
+
+# GitHub settings (for later)
+github:
+  enabled: false
+  username: your-username
+  token: ""  # Optional: for private repos
+  repos:
+    - CodingCompanion
+    - my-other-project
+
+# Obsidian settings (for later)
+obsidian:
+  enabled: false
+  vault_path: /home/chosen/Documents/ObsidianVault

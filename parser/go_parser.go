@@ -120,11 +120,8 @@ func (gp *GoParser) BuildPromptWithContext(question string, results []vector.Sea
 	// Build prompt with your code examples
 	var prompt strings.Builder
 
-	prompt.WriteString("You are a coding assistant. The user has asked:\n\n")
-	prompt.WriteString(question)
-	prompt.WriteString("\n\n")
-
-	prompt.WriteString("Here are relevant examples from the user's own codebase:\n\n")
+	prompt.WriteString("REFERENCE EXAMPLES FROM MY CODEBASE:\n")
+	prompt.WriteString("(Use these to understand my coding style)\n\n")
 
 	for i, result := range results {
 		prompt.WriteString(fmt.Sprintf("--- Example %d ---\n", i+1))
@@ -132,8 +129,9 @@ func (gp *GoParser) BuildPromptWithContext(question string, results []vector.Sea
 		prompt.WriteString("\n\n")
 	}
 
-	prompt.WriteString("Based on how the user has solved similar problems in their own code, ")
-	prompt.WriteString("provide a solution that matches their coding style and patterns.\n")
+	prompt.WriteString("QUESTION:\n")
+	prompt.WriteString(question)
+	prompt.WriteString("\n\nProvide a complete code example in your answer.")
 
 	return prompt.String()
 }

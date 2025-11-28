@@ -6,6 +6,7 @@ require (
 	github.com/amikos-tech/chroma-go v0.2.5
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/ollama/ollama v0.13.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
