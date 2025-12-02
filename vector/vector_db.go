@@ -2,7 +2,9 @@ package vector
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strings"
 
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
@@ -42,6 +44,45 @@ func NewCodeVectorDB() (*CodeVectorDB, error) {
 		client:     client,
 		collection: collection,
 	}, nil
+}
+
+// AddSnippet stores a full CodeSnippet with contextual information encoded
+// into both the text and the metadata, so it can be reconstructed later.
+func (db *CodeVectorDB) AddSnippet(snippet *CodeSnippet) error {
+	// Build a header that encodes context directly into the stored text.
+	// This makes it easy to reconstruct file, function, and line numbers
+	// from the search result without relying on Chroma-specific metadata APIs.
+	var headerBuilder strings.Builder
+	headerBuilder.WriteString(fmt.Sprintf("// file: %s\n", snippet.FilePath))
+	if snippet.FunctionName != "" {
+		headerBuilder.WriteString(fmt.Sprintf("// function: %s\n", snippet.FunctionName))
+	}
+	if snippet.StartLine > 0 || snippet.EndLine > 0 {
+		headerBuilder.WriteString(fmt.Sprintf("// lines: %d-%d\n", snippet.StartLine, snippet.EndLine))
+	}
+	if snippet.DocString != "" {
+		// Keep docstring compact; trim extra whitespace.
+		headerBuilder.WriteString("/* doc: ")
+		headerBuilder.WriteString(strings.TrimSpace(snippet.DocString))
+		headerBuilder.WriteString(" */\n")
+	}
+
+	text := headerBuilder.String() + snippet.Code
+
+	return db.collection.Add(
+		context.Background(),
+		chroma.WithIDs(chroma.DocumentID(snippet.ID)),
+		chroma.WithTexts(text),
+		chroma.WithMetadatas(
+			chroma.NewDocumentMetadata(
+				chroma.NewStringAttribute("language", snippet.Language),
+				chroma.NewStringAttribute("file", snippet.FilePath),
+				chroma.NewStringAttribute("function_name", snippet.FunctionName),
+				chroma.NewStringAttribute("start_line", fmt.Sprintf("%d", snippet.StartLine)),
+				chroma.NewStringAttribute("end_line", fmt.Sprintf("%d", snippet.EndLine)),
+			),
+		),
+	)
 }
 
 func (db *CodeVectorDB) AddCode(id string, code string, language string, filepath string) error {

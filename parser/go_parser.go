@@ -45,12 +45,9 @@ func (gp *GoParser) ParseDirectory(dirPath string) error {
 		}
 
 		for _, snippet := range snippets {
-			gp.db.AddCode(
-				snippet.ID,
-				snippet.Code,
-				snippet.Language,
-				snippet.FilePath,
-			)
+			if err := gp.db.AddSnippet(snippet); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -117,21 +114,84 @@ func (gp *GoParser) BuildPromptWithContext(question string, results []vector.Sea
 		return question
 	}
 
-	// Build prompt with your code examples
 	var prompt strings.Builder
 
 	prompt.WriteString("REFERENCE EXAMPLES FROM MY CODEBASE:\n")
-	prompt.WriteString("(Use these to understand my coding style)\n\n")
+	prompt.WriteString("(Use these to understand my existing projects and coding style.\n")
+	prompt.WriteString("When applicable, base your answer on these files/functions, but improve\n")
+	prompt.WriteString("structure and follow current best practices.)\n\n")
 
 	for i, result := range results {
+		filePath, funcName, startLine, endLine, codeBody := extractContextFromResult(result.Code)
+
 		prompt.WriteString(fmt.Sprintf("--- Example %d ---\n", i+1))
-		prompt.WriteString(result.Code) // The code snippet
+		if filePath != "" {
+			prompt.WriteString(fmt.Sprintf("File: %s\n", filePath))
+		}
+		if funcName != "" {
+			prompt.WriteString(fmt.Sprintf("Function: %s\n", funcName))
+		}
+		if startLine > 0 && endLine > 0 {
+			prompt.WriteString(fmt.Sprintf("Lines: %d-%d\n", startLine, endLine))
+		}
+		if filePath != "" || funcName != "" || (startLine > 0 && endLine > 0) {
+			prompt.WriteString("\n")
+		}
+
+		// The actual code (without the synthetic header comments)
+		prompt.WriteString(codeBody)
 		prompt.WriteString("\n\n")
 	}
 
 	prompt.WriteString("QUESTION:\n")
 	prompt.WriteString(question)
-	prompt.WriteString("\n\nProvide a complete code example in your answer.")
+	prompt.WriteString("\n\n")
+
+	prompt.WriteString("When answering:\n")
+	prompt.WriteString("- Identify which of the above files/functions in my codebase you are basing the answer on.\n")
+	prompt.WriteString("- Use my existing code as a starting point, but improve structure, readability, and best practices.\n")
+	prompt.WriteString("- Keep naming and error-handling patterns consistent with the examples.\n")
+	prompt.WriteString("- Provide a complete, runnable code example in your answer.\n")
 
 	return prompt.String()
+}
+
+// extractContextFromResult parses the synthetic header we stored in the vector DB
+// and returns file path, function name, line numbers, and the code body without headers.
+func extractContextFromResult(code string) (filePath, funcName string, startLine, endLine int, body string) {
+	lines := strings.Split(code, "\n")
+
+	var headerLines int
+	for i, line := range lines {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "// file:") {
+			filePath = strings.TrimSpace(strings.TrimPrefix(trim, "// file:"))
+			headerLines = i + 1
+		} else if strings.HasPrefix(trim, "// function:") {
+			funcName = strings.TrimSpace(strings.TrimPrefix(trim, "// function:"))
+			headerLines = i + 1
+		} else if strings.HasPrefix(trim, "// lines:") {
+			rangeStr := strings.TrimSpace(strings.TrimPrefix(trim, "// lines:"))
+			parts := strings.Split(rangeStr, "-")
+			if len(parts) == 2 {
+				fmt.Sscanf(parts[0], "%d", &startLine)
+				fmt.Sscanf(parts[1], "%d", &endLine)
+			}
+			headerLines = i + 1
+		} else if strings.HasPrefix(trim, "/* doc:") {
+			// Treat doc as part of the header; skip it from the body.
+			headerLines = i + 1
+		} else {
+			// Stop once we hit a non-header line.
+			break
+		}
+	}
+
+	if headerLines > 0 && headerLines < len(lines) {
+		body = strings.Join(lines[headerLines:], "\n")
+	} else {
+		body = code
+	}
+
+	return
 }
